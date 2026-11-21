@@ -5,6 +5,8 @@ on:
     paths:
       - 'videos/**'
       - '.github/workflows/gerar-short.yml'
+      - 'editor.py'
+      - 'requirements.txt'
   workflow_dispatch:
     inputs:
       video:
