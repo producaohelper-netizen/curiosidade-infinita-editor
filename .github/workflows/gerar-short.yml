@@ -1,0 +1,46 @@
+name: Gerar Short com voz brasileira
+on:
+  workflow_dispatch:
+    inputs:
+      video:
+        description: "Caminho do MP4 dentro do repositório"
+        required: true
+        default: "videos/short.mp4"
+      roteiro:
+        description: "Texto da narração (português brasileiro)"
+        required: true
+        default: "E se a Terra atravessasse um corredor de buracos negros? Parece impossível escapar, né? Mas olha só: se ela passar longe de todos, a gravidade pode mudar seu caminho... e ainda dá pra escapar! Agora, se chegar perto demais, o lado que tá mais perto sofre um puxão muito mais forte. E aí... a Terra pode começar a se partir!"
+      voz:
+        description: "Voz brasileira"
+        required: true
+        type: choice
+        options:
+          - pt-BR-ThalitaMultilingualNeural
+          - pt-BR-FranciscaNeural
+
+jobs:
+  editar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar FFmpeg e voz
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          pip install -r requirements.txt
+      - name: Gerar MP4
+        env:
+          VIDEO: ${{ inputs.video }}
+          ROTEIRO: ${{ inputs.roteiro }}
+          VOZ: ${{ inputs.voz }}
+        run: python editor.py --video "$VIDEO" --text "$ROTEIRO" --voice "$VOZ"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: short-final
+          path: output/short-final.mp4
+          retention-days: 7
