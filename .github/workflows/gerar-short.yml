@@ -41,7 +41,8 @@ jobs:
       - name: Gerar MP4
         env:
           VIDEO: ${{ inputs.video || 'videos/Short_Buracos_Negros_Voz_Dora-1.mp4' }}
-          ROTEIRO: ${{ inputs.roteiro || 'E se a Terra atravessasse um corredor de buracos negros? Parece impossível escapar, né? Mas olha só: se ela passar longe de todos, a gravidade pode mudar seu caminho... e ainda dá pra escapar! Agora, se chegar perto demais, o lado que tá mais perto sofre um puxão muito mais forte. E aí... a Terra pode começar a se partir!' }}
+          ROTEIRO: >-
+            ${{ inputs.roteiro || 'E se a Terra atravessasse um corredor de buracos negros? Parece impossível escapar, né? Mas olha só: se ela passar longe de todos, a gravidade pode mudar seu caminho... e ainda dá pra escapar! Agora, se chegar perto demais, o lado que tá mais perto sofre um puxão muito mais forte. E aí... a Terra pode começar a se partir!' }}
           VOZ: ${{ inputs.voz || 'pt-BR-ThalitaMultilingualNeural' }}
         run: python editor.py --video "$VIDEO" --text "$ROTEIRO" --voice "$VOZ"
       - uses: actions/upload-artifact@v4
