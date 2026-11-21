@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 import edge_tts
+import urllib.request
 
 
 def duration(path):
@@ -14,8 +15,27 @@ def duration(path):
 
 
 async def synthesize(text, voice, output):
-    communicate = edge_tts.Communicate(text, voice=voice, rate="+0%")
-    await communicate.save(str(output))
+    try:
+        communicate = edge_tts.Communicate(text, voice=voice, rate="+0%")
+        await communicate.save(str(output))
+        return
+    except Exception as exc:
+        print(f"Edge TTS indisponível ({type(exc).__name__}). Usando Piper offline.", flush=True)
+
+    # Alternativa offline em português brasileiro: não depende do serviço Microsoft.
+    model_dir = output.parent / "piper_model"
+    model_dir.mkdir(exist_ok=True)
+    base = "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/"
+    model = model_dir / "pt_BR-faber-medium.onnx"
+    config = model_dir / "pt_BR-faber-medium.onnx.json"
+    for target in (model, config):
+        if not target.exists():
+            urllib.request.urlretrieve(base + target.name, target)
+    wav = output.with_suffix(".wav")
+    subprocess.run(["piper", "--model", str(model), "--output_file", str(wav)],
+                   input=text, text=True, check=True)
+    subprocess.run(["ffmpeg", "-y", "-i", str(wav), "-codec:a", "libmp3lame", "-qscale:a", "3", str(output)], check=True)
+
 
 
 def main():
