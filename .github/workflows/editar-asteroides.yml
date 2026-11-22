@@ -1,0 +1,49 @@
+name: Editar asteroides em 18 segundos
+on:
+  push:
+    branches: [edicao-asteroides-18s]
+    paths:
+      - 'videos/FDownloader.net-28340520788979998-(1080p).mp4'
+      - 'videos/asteroides.mp4'
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar FFmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+      - name: Renderizar e verificar
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='videos/FDownloader.net-28340520788979998-(1080p).mp4'
+          if [[ ! -f "$src" ]]; then src=videos/asteroides.mp4; fi
+          duration=$(ffprobe -v error -select_streams v:0 -show_entries stream=duration -of csv=p=0 "$src")
+          if [[ ! "$duration" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+            duration=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$src")
+          fi
+          cat > texto.ass <<'EOF'
+          [Script Info]
+          ScriptType: v4.00+
+          PlayResX: 720
+          PlayResY: 1280
+          [V4+ Styles]
+          Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+          Style: Base,DejaVu Sans,42,&H00FFFFFF,&H00FFFFFF,&H00110C08,&H80000000,-1,0,0,0,100,100,0,0,1,3,0,2,34,34,130,1
+          [Events]
+          Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+          Dialogue: 0,0:00:00.00,0:00:03.50,Base,,0,0,0,,{\an8\c&H88D9FF&}Por que tão poucos asteroides\Natingem a Terra?
+          Dialogue: 0,0:00:03.50,0:00:08.30,Base,,0,0,0,,A maioria orbita o Sol\Nentre Marte e Júpiter.
+          Dialogue: 0,0:00:08.30,0:00:12.40,Base,,0,0,0,,Alguns cruzam\Na órbita da Terra.
+          Dialogue: 0,0:00:12.40,0:00:18.00,Base,,0,0,0,,Só há impacto se os dois chegarem\Nao mesmo lugar ao mesmo tempo.
+          EOF
+          ffmpeg -hide_banner -loglevel error -i "$src" -f lavfi -i "aevalsrc=0.075*sin(2*PI*73.416*t)*(0.62+0.38*cos(2*PI*0.8*t))+0.045*sin(2*PI*110*t)+0.024*sin(2*PI*174.614*t)*(0.5+0.5*sin(2*PI*0.2*t))+0.020*sin(2*PI*329.63*t)*exp(-2*mod(t\,2.5)):s=48000:d=18" -map 0:v:0 -map 1:a:0 -vf "setpts=(PTS-STARTPTS)*18/$duration,fps=30,scale=-2:1280,setsar=1,eq=saturation=1.06:contrast=1.01,ass=texto.ass,tpad=stop_mode=clone:stop_duration=0.1" -af "afade=t=in:d=0.3,afade=t=out:st=17:d=1" -t 18 -c:v libx264 -crf 21 -preset fast -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart Asteroides_18s.mp4
+          test "$(ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of csv=p=0 Asteroides_18s.mp4)" = 540
+          ffmpeg -v error -xerror -i Asteroides_18s.mp4 -f null -
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Asteroides_18s
+          path: Asteroides_18s.mp4
+          compression-level: 0
