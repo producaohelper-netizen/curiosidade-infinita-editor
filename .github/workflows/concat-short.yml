@@ -1,0 +1,79 @@
+name: Editar Short com Concat
+on:
+  pull_request:
+    paths:
+      - 'concat_editor.py'
+      - '.github/workflows/concat-short.yml'
+  workflow_dispatch:
+    inputs:
+      video:
+        description: 'Caminho do MP4 no repositório'
+        required: true
+        default: 'videos/Short_Buracos_Negros_Voz_Dora-1.mp4'
+      titulo:
+        description: 'Título opcional (primeiros 3 segundos)'
+        required: false
+        default: ''
+      roteiro:
+        description: 'Narração nova em português (vazio mantém áudio original)'
+        required: false
+        default: ''
+      voz:
+        description: 'Voz para nova narração'
+        type: choice
+        options:
+          - pt-BR-ThalitaMultilingualNeural
+          - pt-BR-FranciscaNeural
+        default: pt-BR-ThalitaMultilingualNeural
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Instalar Concat oficial e FFmpeg
+        run: |
+          sudo apt-get update -qq
+          curl --fail --location --retry 3 -o /tmp/concat.deb https://github.com/jub0t/Concat/releases/download/v0.2.12/Concat-0.2.12-linux-x86_64.deb
+          echo 'b3856dacc4d81e00f7e1d95d7a02dba095a9741deab6161c7297bb8a7fb39dfb  /tmp/concat.deb' | sha256sum -c -
+          sudo apt-get install -y /tmp/concat.deb ffmpeg mesa-vulkan-drivers libvulkan1 fonts-dejavu-core
+          command -v concat
+      - name: Testar integração com vídeo sintético
+        if: github.event_name == 'pull_request'
+        run: |
+          python -m py_compile concat_editor.py
+          mkdir -p output
+          ffmpeg -v error -f lavfi -i testsrc2=size=320x180:rate=30 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 2 -c:v libx264 -pix_fmt yuv420p -c:a aac output/smoke-input.mp4
+          python concat_editor.py --video output/smoke-input.mp4 --output output/concat-final.mp4 --width 320 --height 180 --title 'Teste Concat'
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 output/concat-final.mp4 | grep -Fx '320,180'
+          ffprobe -v error -select_streams a:0 -show_entries stream=codec_type -of csv=p=0 output/concat-final.mp4 | grep -Fx audio
+      - name: Preparar áudio e renderizar Short
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VIDEO: ${{ inputs.video }}
+          TITULO: ${{ inputs.titulo }}
+          ROTEIRO: ${{ inputs.roteiro }}
+          VOZ: ${{ inputs.voz }}
+        run: |
+          mkdir -p output
+          VIDEO="$(realpath -e -- "$VIDEO")"
+          case "$VIDEO" in "$GITHUB_WORKSPACE"/videos/*) ;; *) echo "Use um MP4 da pasta videos"; exit 1;; esac
+          if [ -n "$ROTEIRO" ]; then
+            pip install -r requirements.txt
+            python editor.py --video "$VIDEO" --text "$ROTEIRO" --voice "$VOZ" --output output/narrado.mp4
+            VIDEO=output/narrado.mp4
+          fi
+          python concat_editor.py --video "$VIDEO" --title "$TITULO"
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 output/concat-final.mp4 | grep -Fx '1080,1920'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: concat-final
+          path: output/concat-final.mp4
+          if-no-files-found: error
+          retention-days: 7
