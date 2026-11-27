@@ -1,0 +1,55 @@
+name: Video espacial 30s
+on:
+  push:
+    branches: [video-espaco-30s]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Renderizar
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg python3-numpy
+          python3 - <<'PY'
+          import urllib.request,json,subprocess,os
+          queries=['Earth blue marble','Moon lunar craters','Mars planet global','Saturn rings Cassini','Carina nebula Webb','black hole M87','Andromeda galaxy']
+          durations=[4,4,4,4,4,5,5]
+          for i,(q,d) in enumerate(zip(queries,durations)):
+              from urllib.parse import urlencode
+              url='https://images-api.nasa.gov/search?'+urlencode({'q':q,'media_type':'image','page_size':50})
+              with urllib.request.urlopen(url,timeout=60) as f: items=json.load(f)['collection']['items']
+              for item in items:
+                  try:
+                      link=item['links'][0]['href']
+                      urllib.request.urlretrieve(link,f'{i}.jpg')
+                      subprocess.run(['ffmpeg','-v','error','-y','-i',f'{i}.jpg','-vf',"scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,zoompan=z='1+0.001*on':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d="+str(d*30)+":s=1920x1080:fps=30,setsar=1",' -an'.strip(),'-t',str(d),'-c:v','libx264','-preset','fast','-pix_fmt','yuv420p',f'{i}.mp4'],check=True)
+                      with open('creditos.txt','a') as f: f.write(q+' | '+item['data'][0]['title']+' | '+link+'\n')
+                      break
+                  except Exception: continue
+              else: raise RuntimeError(q)
+          open('lista.txt','w').write(''.join("file '"+str(i)+".mp4'\n" for i in range(7)))
+          import numpy as np,wave
+          sr=44100
+          t=np.arange(sr*30)/sr
+          a=np.zeros_like(t)
+          for j,chord in enumerate([(110,130.81,164.81),(87.31,110,130.81),(130.81,164.81,196),(98,123.47,146.83),(110,130.81,164.81),(146.83,174.61,220)]):
+              mask=(t>=j*5)&(t<(j+1)*5)
+              u=t[mask]-j*5
+              env=np.minimum(u*2,1)*np.minimum((5-u)*2,1)
+              a[mask]=env*sum(np.sin(2*np.pi*f*u)+.3*np.sin(4*np.pi*f*u) for f in chord)*.045
+          a+=.08*np.sin(2*np.pi*55*t)*np.exp(-8*(t%0.625))
+          a*=np.minimum(t,1)*np.minimum(30-t,1)*(.5+.5*t/30)
+          with wave.open('music.wav','wb') as w:
+              w.setparams((1,2,sr,0,'NONE','not compressed'));w.writeframes((a*32767).astype('<i2').tobytes())
+          PY
+          ffmpeg -v error -y -f concat -safe 0 -i lista.txt -i music.wav -c:v copy -c:a aac -b:a 192k -movflags +faststart -t 30 universo.mp4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universo-30s
+          path: |
+            universo.mp4
+            creditos.txt
