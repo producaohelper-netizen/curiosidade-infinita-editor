@@ -26,7 +26,7 @@ jobs:
                   try:
                       link=item['links'][0]['href']
                       urllib.request.urlretrieve(link,f'{i}.jpg')
-                      subprocess.run(['ffmpeg','-v','error','-y','-i',f'{i}.jpg','-vf',"scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,zoompan=z='1+0.001*on':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d="+str(d*30)+":s=1920x1080:fps=30,setsar=1",' -an'.strip(),'-t',str(d),'-c:v','libx264','-preset','fast','-pix_fmt','yuv420p',f'{i}.mp4'],check=True)
+                      subprocess.run(['ffmpeg','-v','error','-y','-i',f'{i}.jpg','-vf',"scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,zoompan=z='1+0.001*on':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d="+str(d*30)+":s=1080x1920:fps=30,setsar=1",' -an'.strip(),'-t',str(d),'-c:v','libx264','-preset','fast','-pix_fmt','yuv420p',f'{i}.mp4'],check=True)
                       with open('creditos.txt','a') as f: f.write(q+' | '+item['data'][0]['title']+' | '+link+'\n')
                       break
                   except Exception: continue
@@ -46,10 +46,10 @@ jobs:
           with wave.open('music.wav','wb') as w:
               w.setparams((1,2,sr,0,'NONE','not compressed'));w.writeframes((a*32767).astype('<i2').tobytes())
           PY
-          ffmpeg -v error -y -f concat -safe 0 -i lista.txt -i music.wav -c:v copy -c:a aac -b:a 192k -movflags +faststart -t 30 universo.mp4
+          ffmpeg -v error -y -f concat -safe 0 -i lista.txt -i music.wav -c:v copy -c:a aac -b:a 192k -movflags +faststart -t 30 universo-vertical.mp4
       - uses: actions/upload-artifact@v4
         with:
-          name: universo-30s
+          name: universo-30s-vertical
           path: |
-            universo.mp4
+            universo-vertical.mp4
             creditos.txt
