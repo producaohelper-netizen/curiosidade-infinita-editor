@@ -16,8 +16,9 @@ jobs:
           sudo apt-get install -y ffmpeg python3-numpy
           python3 - <<'PY'
           import urllib.request,json,subprocess,os
-          queries=['Earth blue marble','Moon lunar craters','Mars planet global','Saturn rings Cassini','Carina nebula Webb','black hole M87','Andromeda galaxy']
-          durations=[4,4,4,4,4,5,5]
+          queries=["Earth blue marble","Earth sunrise orbit","Earth aurora ISS","Moon lunar craters","Moon full disk","Moon lunar mountains","Mercury MESSENGER planet","Venus Magellan planet","Mars planet global","Mars Olympus Mons","Mars Valles Marineris","Jupiter Juno planet","Jupiter great red spot","Europa moon Galileo","Io moon volcano","Saturn rings Cassini","Saturn polar hexagon","Titan moon Cassini","Enceladus moon","Uranus Voyager planet","Neptune Voyager planet","Pluto New Horizons","Comet nucleus Rosetta","Pillars of Creation Webb","Carina nebula Webb","Orion nebula","Crab nebula","black hole M87","Andromeda galaxy","Hubble deep field"]
+          durations=[1]*len(queries)
+          seen=set()
           for i,(q,d) in enumerate(zip(queries,durations)):
               from urllib.parse import urlencode
               url='https://images-api.nasa.gov/search?'+urlencode({'q':q,'media_type':'image','page_size':50})
@@ -25,13 +26,15 @@ jobs:
               for item in items:
                   try:
                       link=item['links'][0]['href']
+                      if link in seen: continue
                       urllib.request.urlretrieve(link,f'{i}.jpg')
                       subprocess.run(['ffmpeg','-v','error','-y','-i',f'{i}.jpg','-vf',"scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,zoompan=z='1+0.001*on':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d="+str(d*30)+":s=1080x1920:fps=30,setsar=1",' -an'.strip(),'-t',str(d),'-c:v','libx264','-preset','fast','-pix_fmt','yuv420p',f'{i}.mp4'],check=True)
+                      seen.add(link)
                       with open('creditos.txt','a') as f: f.write(q+' | '+item['data'][0]['title']+' | '+link+'\n')
                       break
                   except Exception: continue
               else: raise RuntimeError(q)
-          open('lista.txt','w').write(''.join("file '"+str(i)+".mp4'\n" for i in range(7)))
+          open('lista.txt','w').write(''.join("file '"+str(i)+".mp4'\n" for i in range(len(queries))))
           import numpy as np,wave
           sr=44100
           t=np.arange(sr*30)/sr
@@ -46,10 +49,10 @@ jobs:
           with wave.open('music.wav','wb') as w:
               w.setparams((1,2,sr,0,'NONE','not compressed'));w.writeframes((a*32767).astype('<i2').tobytes())
           PY
-          ffmpeg -v error -y -f concat -safe 0 -i lista.txt -i music.wav -c:v copy -c:a aac -b:a 192k -movflags +faststart -t 30 universo-vertical.mp4
+          ffmpeg -v error -y -f concat -safe 0 -i lista.txt -i music.wav -c:v copy -c:a aac -b:a 192k -movflags +faststart -t 30 universo-30-imagens.mp4
       - uses: actions/upload-artifact@v4
         with:
-          name: universo-30s-vertical
+          name: universo-30-imagens-vertical
           path: |
-            universo-vertical.mp4
+            universo-30-imagens.mp4
             creditos.txt
